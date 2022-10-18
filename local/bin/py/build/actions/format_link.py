@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import re
 import glob
 from collections import OrderedDict
@@ -31,6 +32,9 @@ class Node:
 
     def __repr__(self):
         return repr(f"<{self.name}>")
+
+    def __eq__(self, other):
+        return self.name == other.name
 
 
 def parse_file(file):
@@ -101,105 +105,65 @@ def parse_file(file):
     return root
 
 
-def check_references(all_references):
-    """
-    Goes through a list of reference link and dedupe it, and if two references share the same index, throw an error.
-
-    :param all_references: An array of references
-    :return all_references_deduped: An array of references deduped.
-    """
-    all_references_deduped = []
-    reference_indexes_used = []
-    duplicated_references = []
-    is_duplicated = False
-
-    for reference in all_references:
-        if reference not in all_references_deduped:
-
-            reference_index, reference_val = reference
-
-            if reference_index not in reference_indexes_used:
-                reference_indexes_used.append(reference_index)
-                all_references_deduped.append(reference)
-            else:
-                duplicated_references.append(reference)
-                is_duplicated = True
-
-    if is_duplicated:
-        for duplicated_reference in duplicated_references:
-            duplicated_reference_index, duplicated_reference_val = duplicated_reference
-            print('Duplicated reference: [{}]: {}'.format(
-                duplicated_reference_index, duplicated_reference_val))
-        raise AssertionError
-
-    return all_references_deduped
-
-
 def process_nodes(node):
-    content = ''.join(node.lines)
 
-    # extract footer reference links
-    refs = {}
-    matches = re.finditer(r"^\s*\[(\d*?)\]: (\S*)", content, re.MULTILINE)
-    for matchNum, match in enumerate(matches, start=1):
-        refs[match.group(1)] = match.group(2)
-    all_references = OrderedDict(sorted(refs.items()))
+    ignored_nodes = ('code-block', )
 
-    # remove footer reference links
-    # content = re.sub(r"^\s*\[(\d*?)\]: (\S*)", "", content, 0, re.MULTILINE)
-    start_line, end_line = None, None
-    for ln, line in enumerate(node.lines):
-        if re.search(r"^\s*\[(\d*?)\]: (\S*)", line):
-            if start_line:
-                end_line = ln + 1
+    # we want to skip code-block nodes
+    if node.name not in ignored_nodes:
+        content = ''.join(node.lines)
+
+        # extract footer reference links
+        refs = {}
+        ref_nums = []
+        matches = re.finditer(r"^\s*\[(\d*?)\]: (\S*)", content, re.MULTILINE)
+        for matchNum, match in enumerate(matches, start=1):
+            ref_num, ref_link = match.group(1), match.group(2)
+            # alert on duplicate reference numbers
+            if ref_num in ref_nums:
+                print(f"Duplicated reference index:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}")
             else:
-                start_line = ln
-    #     else:
-    #         pass
-    #         #node.modified_lines.append(line)
-    # #content = ''.join(node.modified_lines)
+                refs[ref_num] = ref_link
+                ref_nums.append(ref_num)
+        all_references = OrderedDict(sorted(refs.items()))
 
-    # inline existing reference links
-    for reference_index, reference_val in all_references.items():
-        current_link = '][' + reference_index + ']'
-        content = content.replace(current_link, '](' + reference_val + ')')
+        # we need to raise the error and return the original section, so hugo can fail with this
 
-    # extract all inlined links it can find.
-    all_links = []
-    matches = re.finditer(r"\[.*?\]\((?![#?])(\S*?)\)", content, re.MULTILINE)
-    for match in matches:
-        all_links.append(match.group(1))
-    all_links = set(all_links)
+        # remove footer reference links
+        # content = re.sub(r"^\s*\[(\d*?)\]: (\S*)", "", content, 0, re.MULTILINE)
+        start_line, end_line = None, None
+        for ln, line in enumerate(node.lines):
+            if re.search(r"^\s*\[(\d*?)\]: (\S*)", line):
+                if start_line:
+                    end_line = ln + 1
+                else:
+                    start_line = ln
 
-    # create reference footer section again
-    for i, link in enumerate(all_links):
-        link_to_reference = '](' + str(link) + ')'
-        # i is incremented by one in order to start references indexes at 1
-        content = content.replace(link_to_reference, '][' + str(i + 1) + ']')
+        # inline existing reference links
+        for reference_index, reference_val in all_references.items():
+            current_link = '][' + reference_index + ']'
+            content = content.replace(current_link, '](' + reference_val + ')')
 
-    # assign completed content changes
-    node.modified_lines = content.splitlines(keepends=True)
+        # extract all inlined links it can find.
+        all_links = []
+        matches = re.finditer(r"\[.*?\]\((?![#?])(\S*?)\)", content, re.MULTILINE)
+        for match in matches:
+            all_links.append(match.group(1))
+        all_links = set(all_links)
 
-    # remove blank lines
-    #for _ in all_references:
-    #    index = len(node.modified_lines) - 2 if node.parent else len(node.modified_lines) - 1
-    #    del node.modified_lines[index]
+        # create reference footer section again
+        for i, link in enumerate(all_links):
+            link_to_reference = '](' + str(link) + ')'
+            # i is incremented by one in order to start references indexes at 1
+            content = content.replace(link_to_reference, '][' + str(i + 1) + ']')
 
-    # adds all refrerences at the end of the section
-    #index = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
-    #node.modified_lines[index:index] = [f"FOO[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
-    #index = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
+        # assign completed content changes
+        node.modified_lines = content.splitlines(keepends=True)
 
-    # if not start_line or not end_line:
-    #     start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
-    #     end_line = start_line
-    #     print(f"A {start_line} {end_line} {node.modified_lines[start_line:end_line]} {node.modified_lines[start_line-1:end_line]}")
-    # else:
-    #     print(f"B {start_line} {end_line} {node.modified_lines[start_line:end_line]}")
-    if not start_line:
-        start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
-        end_line = start_line
-    node.modified_lines[start_line:end_line] = [f"FOO[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
+        if not start_line:
+            start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
+            end_line = start_line
+        node.modified_lines[start_line:end_line] = [f"FOO[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
 
     # process children
     for child in node.children:
@@ -225,12 +189,21 @@ def reassemble_file(root):
     return ''.join(contents_list)
 
 
-if __name__ == '__main__':
-    parser = OptionParser(usage='usage: %prog [options] file')
-    parser.add_option('-f', '--file', help='File to format link in reference', default=None)
-    parser.add_option('-d', '--directory', help='Directory to format link in reference for all markdown file', default=None)
+def init_args():
+    """
+    Sets up argument parsing and returns the arguments
+    :return: argparse values
+    """
+    parser = argparse.ArgumentParser(description='Format links in markdown file')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-f', '--file', action='store', default=None, dest='file', help='File to format link in reference')
+    group.add_argument('-d', '--directory', action='store', default=None, dest='directory', help='Directory to format link in reference for all markdown file')
+    args = parser.parse_args()
+    return args
 
-    (options, args) = parser.parse_args()
+
+def main():
+    options = init_args()
     regex_skip_sections_end = r"(```|\{\{< \/code-block >\}\})"
     regex_skip_sections_start = r"(```|\{\{< code-block)"
 
@@ -247,5 +220,8 @@ if __name__ == '__main__':
             # overwrite the original file with our changes
             with open(filepath, 'w') as final_file:
                 final_file.write(reassembled_file)
-    else:
-        print('\x1b[31mERROR\x1b[0m: Please specify a file or a directory')
+
+
+if __name__ == '__main__':
+    main()
+

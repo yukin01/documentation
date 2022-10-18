@@ -1,74 +1,63 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import pytest
-from format_link import format_link_file
-import os
+import argparse
+import io
+import unittest
+from unittest import mock
 
-regex_skip_sections_end = r"(```|\{\{< \/code-block >\}\})"
-regex_skip_sections_start = r"(```|\{\{< code-block)"
-
-data_to_test = """
----
-title: This is a title
-kind: documentation
----
-
-This is an [inlined link](/inlined_link). This is a [broken link]
-
-This is a reference [link][1]
-
-{{< tabs >}}
-{{% tab "<TAB_NAME_1>" %}}
-
-This is an [inlined link](/inlined_link). This is a [broken link]
-
-This is a reference [link][1]
-
-[1]: /reference_link_1
-[3]: /reference_without_text
-
-{{% /tab %}}
-{{< /tabs >}}
-
-[1]: /reference_link_1
-[3]: /reference_without_text
-"""
-
-expected_data = """
----
-title: This is a title
-kind: documentation
----
-
-This is an [inlined link][1]. This is a [broken link]
-
-This is a reference [link][2]
-
-{{< tabs >}}
-{{% tab "<TAB_NAME_1>" %}}
-
-This is an [inlined link][1]. This is a [broken link]
-
-This is a reference [link][2]
+from format_link import parse_file, Node, init_args, main
 
 
-[1]: /inlined_link
-[2]: /reference_link_1
-{{% /tab %}}
-{{< /tabs >}}
+class TestParse(unittest.TestCase):
 
-[1]: /inlined_link
-[2]: /reference_link_1
-"""
+    @mock.patch('format_link.open', new=mock.mock_open(read_data='This is some text'))
+    def test_no_shortcodes_parses(self):
+        actual = parse_file('/content/en/foo.md')
+        expected = Node("root")
+        self.assertEqual(actual, expected)
+
+    @mock.patch('format_link.open', new=mock.mock_open(
+        read_data='**Note**: Mention ```@zenduty``` as a channel under **Notify your team**'))
+    def test_inline_triple_backtick_parses(self):
+        actual = parse_file('/content/en/foo.md')
+        expected = Node("root")
+        self.assertEqual(actual, expected)
+
+    @mock.patch('format_link.open', new=mock.mock_open(
+        read_data='## Further Reading\n{{< partial name="whats-next/whats-next.html" >}}'))
+    def test_non_closing_shortcode_ignored(self):
+        actual = parse_file('/content/en/foo.md')
+        expected = Node("root")
+        self.assertEqual(actual, expected)
+
+    @mock.patch('format_link.open', new=mock.mock_open(
+        read_data='{{< programming-lang-wrapper langs="java,dotnet,go,ruby,php,nodejs,python" >}}{{< programming-lang lang="java" >}}{{< /programming-lang >}}{{< /programming-lang-wrapper >}}'))
+    def test_lang_shortcode(self):
+        actual = parse_file('/content/en/foo.md')
+        expected = Node("root")
+        self.assertEqual(actual, expected)
+
+    @mock.patch('format_link.open', new=mock.mock_open(
+        read_data='{{< programming-lang-wrapper langs="java,dotnet,go,ruby,php,nodejs,python" >}}{{< programming-lang lang="java" >}}{{< tabs >}}{{% tab "set_tag" %}}{{% /tab %}}{{< /tabs >}}{{< /programming-lang >}}{{< /programming-lang-wrapper >}}'))
+    def test_lang_tab_shortcode(self):
+        actual = parse_file('/content/en/foo.md')
+        expected = Node("root")
+        self.assertEqual(actual, expected)
 
 
-def test_format_link(tmp_path):
-    tmp_directory = tmp_path / "tests"
-    tmp_directory.mkdir()
+class TestInitArgs(unittest.TestCase):
 
-    bad_file = tmp_directory / "bad_file.md"
+    @mock.patch('sys.argv', ['-f', 'content/en/foo/bar.md', '-d', 'content/en/'])
+    def test_file_dir_both_exist_error(self):
+        with self.assertRaises(SystemExit):
+            init_args()
 
-    bad_file.write_text(data_to_test)
 
-    assert expected_data == format_link_file(
-        bad_file, regex_skip_sections_start, regex_skip_sections_end)
+class TestMain(unittest.TestCase):
+
+    @mock.patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(file='content/en/foo/bar.md'))
+    def test_invalid_json_raises(self, mock_args):
+        with self.assertRaises(TypeError):
+            main()
+
+
+if __name__ == '__main__':
+    unittest.main()
