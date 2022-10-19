@@ -5,7 +5,29 @@ import argparse
 import re
 import glob
 from collections import OrderedDict
-from optparse import OptionParser
+import logging
+import sys
+
+
+class Formatter(logging.Formatter):
+    def format(self, record):
+        reset = "\x1b[0m"
+        color = {
+            logging.INFO: 32,
+            logging.WARNING: 33,
+            logging.ERROR: 31,
+            logging.FATAL: 31,
+            logging.DEBUG: 36
+        }.get(record.levelno, 0)
+        self._style._fmt = f"\x1b[{color}m%(levelname)s:{reset} %(message)s"
+        return super().format(record)
+
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler(stream=sys.stdout)
+handler.setFormatter(Formatter())
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 
 class Node:
@@ -45,25 +67,21 @@ def parse_file(file):
     :param file: file to break down into sections.
     :return root: Root node from parsing
     """
-    sub_sections = []
-
     root = Node("root")
     current_node = root
 
     open_tag_regex = r"{{[<|%]\s+([A-Za-z0-9-_]+)(.*)\s+[%|>]}}"
     closed_tag_regex = r"{{[<|%]\s+/([A-Za-z0-9-_]+)(.*)\s+[%|>]}}"
+    backtick_code_regex = r"(```)"
 
     # list of tags that don't have open/close and are just one liner
-    one_liner_tags = ("partial",)
-    # tags we care about contents having its own scope and being a 'subsection'
-    subsection_tags = ('tab', 'programming-lang')
+    # this isn't sustainable, we need to detect one liners or specify includes not excludes
+    one_liner_tags = ("partial", "img", "region-param", "latest-lambda-layer-version")
 
     with open(file, 'r', encoding='utf-8') as f:
         new_line_number = 0
         for line_number, line in enumerate(f):
             current_node.push_line(line)
-            #if current_node.name not in subsection_tags and current_node.parent:
-            #    root.push_line(line)
 
             # find new open tags and create a node
             new_node = None
@@ -87,11 +105,7 @@ def parse_file(file):
             for matchNum, match in enumerate(matches, start=1):
                 tag_name = match.group(1)
                 current_node.end = match.end(0)
-                #if tag_name in subsection_tags:
-                #    root.push_line(line)
                 if tag_name == current_node.name and current_node.parent:
-                    if tag_name in subsection_tags:
-                        sub_sections.append(current_node.lines[1:-1])
                     current_node.end_line = current_node.start_line + 1
                     new_line_number = current_node.end_line
                     current_node = current_node.parent
@@ -121,7 +135,8 @@ def process_nodes(node):
             ref_num, ref_link = match.group(1), match.group(2)
             # alert on duplicate reference numbers
             if ref_num in ref_nums:
-                print(f"Duplicated reference index:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}")
+                logger.warning(f'Duplicated reference index:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}')
+                raise SystemExit
             else:
                 refs[ref_num] = ref_link
                 ref_nums.append(ref_num)
@@ -163,7 +178,7 @@ def process_nodes(node):
         if not start_line:
             start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
             end_line = start_line
-        node.modified_lines[start_line:end_line] = [f"FOO[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
+        node.modified_lines[start_line:end_line] = [f"[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
 
     # process children
     for child in node.children:
@@ -182,11 +197,6 @@ def assemble_nodes(node):
             # multi line shortcode
             output[child.start_line:child.end_line + 1] = child_output
     return output
-
-
-def reassemble_file(root):
-    contents_list = assemble_nodes(root)
-    return ''.join(contents_list)
 
 
 def init_args():
@@ -210,13 +220,14 @@ def main():
     if options.file or options.directory:
         files = [options.file] if options.file else glob.iglob(options.directory + '**/*.md', recursive=True)
         for filepath in files:
-            print('\x1b[32mINFO\x1b[0m: Formating file {}'.format(filepath))
+            logger.info(f'Formating file {filepath}')
             # parse the file shortcode hierarchy
             root = parse_file(filepath)
             # process each node text contents, each node will store original and modified content
             process_nodes(root)
             # reassemble the file with the changes we have made
-            reassembled_file = reassemble_file(root)
+            contents_list = assemble_nodes(root)
+            reassembled_file = ''.join(contents_list)
             # overwrite the original file with our changes
             with open(filepath, 'w') as final_file:
                 final_file.write(reassembled_file)

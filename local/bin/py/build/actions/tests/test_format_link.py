@@ -42,6 +42,10 @@ class TestParse(unittest.TestCase):
         expected = Node("root")
         self.assertEqual(actual, expected)
 
+    # one liner shortcode we don't know about, we should error
+    # test shortcode with < or > in name
+    # test ja shortcodes
+
 
 class TestInitArgs(unittest.TestCase):
 
