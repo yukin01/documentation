@@ -45,6 +45,7 @@ class TestParse(unittest.TestCase):
     # one liner shortcode we don't know about, we should error
     # test shortcode with < or > in name
     # test ja shortcodes
+    # test unclosed shortcode, with and without more shortcodes inside it
 
 
 class TestInitArgs(unittest.TestCase):
@@ -57,8 +58,24 @@ class TestInitArgs(unittest.TestCase):
 
 class TestMain(unittest.TestCase):
 
-    @mock.patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(file='content/en/foo/bar.md'))
-    def test_invalid_json_raises(self, mock_args):
+    @mock.patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(source='content/en/foo/bar.md'))
+    @mock.patch('format_link.parse_file', return_value=Node('fakeroot'))
+    @mock.patch('format_link.process_nodes')
+    @mock.patch('format_link.assemble_nodes')
+    @mock.patch('format_link.open', new_callable=mock.mock_open())
+    def test_file_passed_is_processed(self, mock_open, mock_assemble_nodes, mock_process_nodes, mock_parse_file, mock_parse_args):
+        """
+        Mock all the actual processing and lets check that passing a file does actually attempt to write to file
+        """
+        main()
+        mock_open.assert_called_once_with('content/en/foo/bar.md', 'w')
+
+    @mock.patch('argparse.ArgumentParser.parse_args', return_value=argparse.Namespace(source='content/en/foo/'))
+    @mock.patch('format_link.parse_file', return_value=Node('fakeroot'))
+    @mock.patch('format_link.process_nodes')
+    @mock.patch('format_link.assemble_nodes')
+    @mock.patch('format_link.open', new_callable=mock.mock_open())
+    def test_dir_passed_is_processed(self, mock_open, mock_assemble_nodes, mock_process_nodes, mock_parse_file, mock_parse_args):
         with self.assertRaises(TypeError):
             main()
 

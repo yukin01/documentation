@@ -7,6 +7,7 @@ import glob
 from collections import OrderedDict
 import logging
 import sys
+from pathlib import Path
 
 
 class Formatter(logging.Formatter):
@@ -206,8 +207,8 @@ def init_args():
     """
     parser = argparse.ArgumentParser(description='Format links in markdown file')
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-f', '--file', action='store', default=None, dest='file', help='File to format link in reference')
-    group.add_argument('-d', '--directory', action='store', default=None, dest='directory', help='Directory to format link in reference for all markdown file')
+    group.add_argument('-f', '--file', action='store', default=None, dest='source', help='File to format link in reference')
+    group.add_argument('-d', '--directory', action='store', default=None, dest='source', help='Directory to format link in reference for all markdown file')
     args = parser.parse_args()
     return args
 
@@ -217,8 +218,9 @@ def main():
     regex_skip_sections_end = r"(```|\{\{< \/code-block >\}\})"
     regex_skip_sections_start = r"(```|\{\{< code-block)"
 
-    if options.file or options.directory:
-        files = [options.file] if options.file else glob.iglob(options.directory + '**/*.md', recursive=True)
+    if options.source:
+        source_path = Path(options.source)
+        files = [source_path] if source_path.is_file() else glob.iglob(str(source_path / '**/*.md'), recursive=True)
         for filepath in files:
             logger.info(f'Formating file {filepath}')
             # parse the file shortcode hierarchy
