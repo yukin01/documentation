@@ -87,7 +87,7 @@
       - repo_name: integrations-extras
         contents:
             - action: integrations
-              branch: bertaudamien:master
+              branch: bertaudamien/integrations-extras
               globs:
                   - '*/metadata.csv'
                   - '*/manifest.json'
