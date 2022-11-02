@@ -121,7 +121,10 @@ def parse_file(file):
 
 
 def process_nodes(node):
-
+    """
+    Takes the parsed node structure and processes the link formatting we desire throughout each node.
+    @param node: node
+    """
     ignored_nodes = ('code-block', )
 
     # we want to skip code-block nodes
@@ -136,7 +139,7 @@ def process_nodes(node):
             ref_num, ref_link = match.group(1), match.group(2)
             # alert on duplicate reference numbers
             if ref_num in ref_nums:
-                logger.warning(f'Duplicated reference index:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}')
+                logger.warning(f'Duplicated reference index number:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}')
                 raise SystemExit
             else:
                 refs[ref_num] = ref_link
@@ -187,6 +190,13 @@ def process_nodes(node):
 
 
 def assemble_nodes(node):
+    """
+    Takes a node and assembles the text contents of itself and children nodes into a final string
+    This allows us to modify each node individually and inject it into the parent.
+    we process in reverse so that we don't introduce offsets
+    @param node: node
+    @return: list of strings
+    """
     output = [] + node.modified_lines
     for child in reversed(node.children):
         child_output = assemble_nodes(child)
@@ -213,26 +223,41 @@ def init_args():
     return args
 
 
-def main():
-    options = init_args()
-    regex_skip_sections_end = r"(```|\{\{< \/code-block >\}\})"
-    regex_skip_sections_start = r"(```|\{\{< code-block)"
+def format_link_file(*args):
+    """
+    Kept for legacy usage in other scripts
+    Takes a filepath and parses/processes and returns the string text
+    @param args: filepath, (we don't care about other args passed from legacy scripts)
+    @return: string of changed file
+    """
+    if len(args) == 0:
+        raise ValueError("Filepath is required argument")
+    filepath = args[0]
+    # parse the file shortcode hierarchy
+    root = parse_file(filepath)
+    # process each node text contents, each node will store original and modified content
+    process_nodes(root)
+    # reassemble the file with the changes we have made
+    contents_list = assemble_nodes(root)
+    reassembled_file = ''.join(contents_list)
+    return reassembled_file
 
+
+def main():
+    """
+    Entry point taking args and processing directory of files or file
+    and responsible for writing the new contents back out to filesystem
+    """
+    options = init_args()
     if options.source:
         source_path = Path(options.source)
         files = [source_path] if source_path.is_file() else glob.iglob(str(source_path / '**/*.md'), recursive=True)
         for filepath in files:
             logger.info(f'Formating file {filepath}')
-            # parse the file shortcode hierarchy
-            root = parse_file(filepath)
-            # process each node text contents, each node will store original and modified content
-            process_nodes(root)
-            # reassemble the file with the changes we have made
-            contents_list = assemble_nodes(root)
-            reassembled_file = ''.join(contents_list)
+            final_text = format_link_file(filepath)
             # overwrite the original file with our changes
             with open(filepath, 'w') as final_file:
-                final_file.write(reassembled_file)
+                final_file.write(final_text)
 
 
 if __name__ == '__main__':
