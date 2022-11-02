@@ -252,6 +252,8 @@ def main():
     if options.source:
         source_path = Path(options.source)
         files = [source_path] if source_path.is_file() else glob.iglob(str(source_path / '**/*.md'), recursive=True)
+        if not list(files):
+            logger.warning('No files found to process')
         for filepath in files:
             logger.info(f'Formating file {filepath}')
             final_text = format_link_file(filepath)
