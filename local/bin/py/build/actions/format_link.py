@@ -150,7 +150,7 @@ def process_nodes(node):
 
         # remove footer reference links
         # content = re.sub(r"^\s*\[(\d*?)\]: (\S*)", "", content, 0, re.MULTILINE)
-        start_line, end_line = None, None
+        start_line, end_line = 0, 0
         for ln, line in enumerate(node.lines):
             if re.search(r"^\s*\[(\d*?)\]: (\S*)", line):
                 if start_line:
@@ -182,7 +182,11 @@ def process_nodes(node):
         if not start_line:
             start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
             end_line = start_line
+        if end_line == 0:
+            end_line = start_line + 1
         node.modified_lines[start_line:end_line] = [f"[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
+    else:
+        node.modified_lines = node.lines
 
     # process children
     for child in node.children:
