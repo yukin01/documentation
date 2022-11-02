@@ -186,6 +186,7 @@ def process_nodes(node):
             end_line = start_line + 1
         node.modified_lines[start_line:end_line] = [f"[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
     else:
+        # ignored nodes we still need to return its original text or its removed
         node.modified_lines = node.lines
 
     # process children
