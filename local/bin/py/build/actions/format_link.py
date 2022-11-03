@@ -77,7 +77,7 @@ def parse_file(file):
 
     # list of tags that don't have open/close and are just one liner
     # this isn't sustainable, we need to detect one liners or specify includes not excludes
-    one_liner_tags = ("partial", "img", "region-param", "latest-lambda-layer-version")
+    one_liner_tags = ("partial", "img", "region-param", "latest-lambda-layer-version", "X", "dashboards-widgets-api")
 
     with open(file, 'r', encoding='utf-8') as f:
         new_line_number = 0
@@ -107,10 +107,16 @@ def parse_file(file):
                 tag_name = match.group(1)
                 current_node.end = match.end(0)
                 if tag_name == current_node.name and current_node.parent:
-                    current_node.end_line = current_node.start_line + 1
+                    # if we closed on the same line we don't want to add the line again and end_line is the same
+                    is_same_line = line_number == current_node.start_line
+                    if is_same_line:
+                        current_node.end_line = current_node.start_line
+                    else:
+                        current_node.end_line = current_node.start_line + 1
                     new_line_number = current_node.end_line
                     current_node = current_node.parent
-                    current_node.push_line(line)
+                    if not is_same_line:
+                        current_node.push_line(line)
 
             new_line_number += 1
 
@@ -208,7 +214,13 @@ def assemble_nodes(node):
         if child.start_line == child.end_line:
             # single line shortcode
             line = output[child.start_line]
-            output[child.start_line] = line[:child.start] + child_output + line[child.end:]
+            if child_output:
+                output[child.start_line] = line[:child.start] + child_output + line[child.end:]
+            else:
+                # lets just use the full line for now
+                # TODO: rebuild from char start to char end like above for interspersed shortcode amongst text
+                #       e.g something like line[:child.start] + line[child.end:] should work but doesn't
+                output[child.start_line] = line
         else:
             # multi line shortcode
             output[child.start_line:child.end_line + 1] = child_output

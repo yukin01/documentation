@@ -4,7 +4,7 @@ import unittest
 from pathlib import PosixPath
 from unittest import mock
 
-from format_link import parse_file, Node, init_args, assemble_nodes, main, format_link_file
+from format_link import parse_file, Node, init_args, assemble_nodes, main, format_link_file, process_nodes
 
 
 class TestParse(unittest.TestCase):
@@ -104,6 +104,21 @@ Hello world 2
         self.assertEqual(actual, expected)
     # test unclosed shortcode, with and without more shortcodes inside it
 
+    @mock.patch('format_link.open', new=mock.mock_open(read_data="""
+{{< whatsnext desc="This section includes the following topics:">}}
+  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}
+  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}
+  {{< nextlink href="/containers/cluster_agent">}}<u>Cluster Agent</u>: Install and configure the Cluster Agent for Kubernetes, a version of the Datadog Agent built to efficiently gather monitoring data from across an orchestrated cluster.{{< /nextlink >}}
+  {{< nextlink href="/containers/amazon_ecs">}}<u>Amazon ECS</u>: Install and configure the Datadog Agent on Amazon ECS.{{< /nextlink >}}
+  {{< nextlink href="integrations/ecs_fargate/">}}<u>AWS Fargate</u>: Install and configure the Datadog Agent with Amazon ECS on AWS Fargate{{< /nextlink >}}
+{{< /whatsnext >}}
+"""))
+    def test_common_whatsnext_shortcodes(self):
+        parsed = parse_file('/content/en/foo.md')
+        actual = len(parsed.children)
+        expected = 5
+        self.assertEqual(actual, expected)
+
 
 class TestInitArgs(unittest.TestCase):
 
@@ -153,7 +168,27 @@ class TestAssembleNodes(unittest.TestCase):
 
 
 class TestProcessNodes(unittest.TestCase):
-    def test_foo(self):
+    def test_process_shortcodes_on_same_line(self):
+        node = Node('root')
+        node.name = 'root'
+        node.start = 2
+        node.end = 18
+        node.end_line = 0
+        node.start_line = 0
+        node.lines = ['---\n', 'title: Container Monitoring\n', 'kind: documentation\n', 'description: Install & configure the Agent to collect data on containerized infrastructures\n', '---\n', '\n', '## Overview\n', '\n', 'Container Monitoring provides real-time visibility into the health and performance of containerized environments.\n', '\n', '{{< whatsnext desc="This section includes the following topics:">}}\n', '  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n', '{{< /whatsnext >}}\n']
+        nextlink_node = Node('nextlink')
+        nextlink_node.lines = ['  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n']
+        nextlink_node.end = 125
+        nextlink_node.end_line = 12
+        nextlink_node.start = 0
+        nextlink_node.start_line = 11
+        node.children = [
+            nextlink_node
+        ]
+        process_nodes(node)
+        self.assertIn("nextlink", ''.join(node.modified_lines))
+
+    def test_skips_code_block_nodes(self):
         pass
 
 
