@@ -149,10 +149,10 @@ def process_nodes(node):
         ref_nums = []
         matches = re.finditer(r"^\s*\[(\d*?)\]: (\S*)", content, re.MULTILINE)
         for matchNum, match in enumerate(matches, start=1):
-            ref_num, ref_link = match.group(1), match.group(2)
+            ref_num, ref_link = int(match.group(1)), match.group(2)
             # alert on duplicate reference numbers
             if ref_num in ref_nums:
-                logger.warning(f'Duplicated reference index number:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}\nin section {node}')
+                logger.warning(f'{node} has duplicated reference index numbers:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}')
                 raise SystemExit
             else:
                 refs[ref_num] = ref_link
@@ -164,7 +164,7 @@ def process_nodes(node):
         # TODO: as well as this warning we should attempt to source the link from the root of document
         if not all_references and re.search(r"\[.*?\]\[(?![#?])(\S*?)\]", content) is not None:
             matches = re.finditer(r"\[.*?\]\[(?![#?])(\S*?)\]", content, re.MULTILINE)
-            logger.warning(f"{node} has no footer links but uses:\n" + "\n".join([f"\t{match.group(0)}" for match in matches]))
+            logger.warning(f"{node} has no footer links but references them:\n" + "\n".join([f"\t{match.group(0)}" for match in matches]))
 
         # we need to raise the error and return the original section, so hugo can fail with this
 
@@ -180,18 +180,31 @@ def process_nodes(node):
 
         # inline existing reference links
         for reference_index, reference_val in all_references.items():
-            current_link = '][' + reference_index + ']'
-            content = content.replace(current_link, '](' + reference_val + ')')
+            current_link = f'][{reference_index}]'
+            content = content.replace(current_link, f']({reference_val})')
 
         # extract all inlined links it can find and try and maintain their number if we can so there is less of a diff
-        all_references_reversed = {y: x for x, y in all_references.items()}
-        inline_refs = {}
+        all_references_flipped = {}
+        for x, y in all_references.items():
+            if y not in all_references_flipped.keys():
+                all_references_flipped[y] = x
+        refs = {}
         matches = re.finditer(r"\[.*?\]\((?![#?])(\S*?)\)", content, re.MULTILINE)
         for match in matches:
             inline_ref_link = match.group(1)
-            inline_ref_num = all_references_reversed.get(inline_ref_link, None)
+            inline_ref_num = all_references_flipped.get(inline_ref_link, None)
             if inline_ref_num:
-                inline_refs[inline_ref_num] = inline_ref_link
+                refs[inline_ref_num] = inline_ref_link
+        inline_refs = OrderedDict(sorted(refs.items()))
+
+        # re-order numbers where needed
+        #for index, val in inline_refs.items():
+        # from itertools import groupby
+        # from operator import itemgetter
+        # data = refs.keys()
+        # for k, g in groupby(enumerate(data), lambda ix : ix[0] - ix[1]):
+        #     print(list(map(itemgetter(1), g)))
+
 
         # create reference footer section again
         for reference_index, reference_val in inline_refs.items():

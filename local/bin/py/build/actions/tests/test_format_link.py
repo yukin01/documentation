@@ -211,6 +211,50 @@ class TestProcessNodes(unittest.TestCase):
     # Also we should do a warning too?
     # content/en/logs/explorer/visualize.md
 
+    # test should remove duplicate urls and condense them
+    def test_duplicate_links_cleaned(self):
+        """We should remove the duplicate foot urls as we encounter them"""
+        node = Node('root')
+        node.lines = [
+            "## Overview\n", "\n",
+            "Lorem ipsum dolor [sit amet][1], consectetur adipiscing elit.\n",
+            "Suspendisse [odio augue][2], posuere commodo faucibus non, elementum et metus.\n",
+            "Lorem [ipsum dolor][3] sit amet, consectetur adipiscing elit.\n",
+            "Suspendisse odio augue, posuere commodo faucibus non, [elementum et metus][4].\n",
+            "Lorem ipsum dolor sit amet, [consectetur][5] adipiscing elit.\n",
+            "[Suspendisse][6] odio augue, posuere commodo faucibus non, elementum et metus.\n",
+            "\n",
+            "[1]: https://app.datadoghq.com/dashboard/lists\n",
+            "[2]: https://app.datadoghq.com/notebook/list\n",
+            "[3]: /continuous_integration/pipelines/\n",
+            "[4]: /continuous_integration/tests/\n",
+            "[5]: /continuous_integration/pipelines/\n",
+            "[6]: /continuous_integration/tests/\n",
+        ]
+        process_nodes(node)
+        self.assertIn("[3]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
+        self.assertNotIn("[5]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
+
+    def test_footer_numbers_reordered_after(self):
+        """if we have 1,2,3,4,5 and we remove 3 items to the right should reorder only"""
+        node = Node('root')
+        node.lines = [
+            "## Overview\n", "\n",
+            "Lorem ipsum dolor [sit amet][1], consectetur adipiscing elit.\n",
+            "Suspendisse [odio augue][2], posuere commodo faucibus non, elementum et metus.\n",
+            "Suspendisse odio augue, posuere commodo faucibus non, [elementum et metus][4].\n",
+            "Lorem ipsum dolor sit amet, [consectetur][5] adipiscing elit.\n",
+            "\n",
+            "[1]: https://app.datadoghq.com/dashboard/lists\n",
+            "[2]: https://app.datadoghq.com/notebook/list\n",
+            "[3]: /this/will/be/removed/\n",
+            "[4]: /continuous_integration/tests/\n",
+            "[5]: /continuous_integration/pipelines/\n",
+        ]
+        process_nodes(node)
+        self.assertIn("[3]: /continuous_integration/tests/", ''.join(node.modified_lines))
+        self.assertIn("[4]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
+
 
 class TestFormatLinkFile(unittest.TestCase):
 
@@ -254,3 +298,10 @@ class TestMain(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# shouldn't erase the nextlinks content/en/containers/_index.md
+# weird table added at bottom in content/en/database_monitoring/setup_mysql/_index.md
+# weird ending on en/dashboards/widgets/timeseries.md
+# if we don't need to modify the file we shouldn't e.g all links are in table already
+# oneliner/inline shortcodes?
