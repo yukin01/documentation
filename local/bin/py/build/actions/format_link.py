@@ -72,7 +72,7 @@ def parse_file(file):
     current_node = root
 
     open_tag_regex = r"{{[<|%]\s+([A-Za-z0-9-_]+)(.*)\s+[%|>]}}"
-    closed_tag_regex = r"{{[<|%]\s+/([A-Za-z0-9-_]+)(.*)\s+[%|>]}}"
+    closed_tag_regex = r"{{[<|%]\s+/([A-Za-z0-9-_]+)(.*)\s*[%|>]}}"
     backtick_code_regex = r"(```)"
 
     # list of tags that don't have open/close and are just one liner
@@ -83,8 +83,9 @@ def parse_file(file):
                       "sdk-version", "notifications-integrations", "notifications-email", "get-npm-integrations",
                       "permissions", "aws-permissions" "dbm-sqlserver-before-you-begin", "log-libraries-table",
                       "serverless-libraries-table", "tracing-libraries-table", "classic-libraries-table",
-                      "dbm-sqlserver-agent-setup-kubernetes", "dbm-sqlserver-agent-setup-docker", "dbm-sqlserver-agent-setup-linux",
-                      "dbm-sqlserver-agent-setup-windows", )
+                      "dbm-sqlserver-agent-setup-kubernetes", "dbm-sqlserver-agent-setup-docker",
+                      "dbm-sqlserver-agent-setup-linux", "dbm-sqlserver-agent-setup-windows",
+                      "managed-locations")
 
     with open(file, 'r', encoding='utf-8') as f:
         new_line_number = 0
@@ -199,11 +200,17 @@ def process_nodes(node):
 
         # re-order numbers where needed
         #for index, val in inline_refs.items():
-        # from itertools import groupby
-        # from operator import itemgetter
-        # data = refs.keys()
-        # for k, g in groupby(enumerate(data), lambda ix : ix[0] - ix[1]):
-        #     print(list(map(itemgetter(1), g)))
+        from itertools import groupby
+        from operator import itemgetter
+        data = inline_refs.keys()
+        new = {}
+        for k, g in groupby(enumerate(data), lambda ix : ix[0] - ix[1]):
+            #print(list(map(itemgetter(1), g)))
+            #print(list(g))
+            for x in g:
+                new[x[0] + 1] = inline_refs[x[1]]
+        #print(new)
+        inline_refs = OrderedDict(sorted(new.items()))
 
 
         # create reference footer section again
