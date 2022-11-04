@@ -119,6 +119,10 @@ Hello world 2
         expected = 5
         self.assertEqual(actual, expected)
 
+    @mock.patch('format_link.open', new=mock.mock_open(read_data="""`@notification`"""))
+    def test_special_chars(self):
+        pass
+
 
 class TestInitArgs(unittest.TestCase):
 
@@ -190,6 +194,22 @@ class TestProcessNodes(unittest.TestCase):
 
     def test_skips_code_block_nodes(self):
         pass
+
+    def test_does_not_modify_when_order_only_changes(self):
+        node = Node('root')
+        node.lines = ['## Overview\n', '\n',
+                      'Lorem ipsum dolor [sit amet][1], consectetur adipiscing elit.\n', '\n',
+                      'Suspendisse [odio augue][2], posuere commodo faucibus non, elementum et metus.\n',
+                      '[1]: /events/\n',
+                      '[2]: /logs/\n']
+        process_nodes(node)
+        self.assertIn("[1]: /events/", ''.join(node.modified_lines))
+
+
+    # test if link used in section e.g [blah][1] but not footer link in that section
+    # try to pull it from the root as that is most likely location
+    # Also we should do a warning too?
+    # content/en/logs/explorer/visualize.md
 
 
 class TestFormatLinkFile(unittest.TestCase):

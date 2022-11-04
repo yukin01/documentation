@@ -76,8 +76,15 @@ def parse_file(file):
     backtick_code_regex = r"(```)"
 
     # list of tags that don't have open/close and are just one liner
-    # this isn't sustainable, we need to detect one liners or specify includes not excludes
-    one_liner_tags = ("partial", "img", "region-param", "latest-lambda-layer-version", "X", "dashboards-widgets-api")
+    # TODO: this isn't sustainable, we need to detect one liners or specify includes not excludes
+    one_liner_tags = ("partial", "img", "region-param", "latest-lambda-layer-version", "X", "dashboards-widgets-api",
+                      "api-scopes", "vimeo", "integrations", "jqmath-vanilla", "translate", "get-service-checks-from-git",
+                      "get-metrics-from-git", "appsec-getstarted", "appsec-getstarted-2", "appsec-getstarted-2-canary",
+                      "sdk-version", "notifications-integrations", "notifications-email", "get-npm-integrations",
+                      "permissions", "aws-permissions" "dbm-sqlserver-before-you-begin", "log-libraries-table",
+                      "serverless-libraries-table", "tracing-libraries-table", "classic-libraries-table",
+                      "dbm-sqlserver-agent-setup-kubernetes", "dbm-sqlserver-agent-setup-docker", "dbm-sqlserver-agent-setup-linux",
+                      "dbm-sqlserver-agent-setup-windows", )
 
     with open(file, 'r', encoding='utf-8') as f:
         new_line_number = 0
@@ -108,7 +115,7 @@ def parse_file(file):
                 current_node.end = match.end(0)
                 if tag_name == current_node.name and current_node.parent:
                     # if we closed on the same line we don't want to add the line again and end_line is the same
-                    is_same_line = line_number == current_node.start_line
+                    is_same_line = new_line_number == 0
                     if is_same_line:
                         current_node.end_line = current_node.start_line
                     else:
@@ -152,6 +159,13 @@ def process_nodes(node):
                 ref_nums.append(ref_num)
         all_references = OrderedDict(sorted(refs.items()))
 
+        # if we have [foo][1] in a section but no footer links its referencing
+        # it's likely the user put the footer link in the root of the document
+        # TODO: as well as this warning we should attempt to source the link from the root of document
+        if not all_references and re.search(r"\[.*?\]\[(?![#?])(\S*?)\]", content) is not None:
+            matches = re.finditer(r"\[.*?\]\[(?![#?])(\S*?)\]", content, re.MULTILINE)
+            logger.warning(f"{node} has no footer links but uses:\n" + "\n".join([f"\t{match.group(0)}" for match in matches]))
+
         # we need to raise the error and return the original section, so hugo can fail with this
 
         # remove footer reference links
@@ -169,28 +183,42 @@ def process_nodes(node):
             current_link = '][' + reference_index + ']'
             content = content.replace(current_link, '](' + reference_val + ')')
 
-        # extract all inlined links it can find.
-        all_links = []
+        # extract all inlined links it can find and try and maintain their number if we can so there is less of a diff
+        all_references_reversed = {y: x for x, y in all_references.items()}
+        inline_refs = {}
         matches = re.finditer(r"\[.*?\]\((?![#?])(\S*?)\)", content, re.MULTILINE)
         for match in matches:
-            all_links.append(match.group(1))
-        all_links = set(all_links)
+            inline_ref_link = match.group(1)
+            inline_ref_num = all_references_reversed.get(inline_ref_link, None)
+            if inline_ref_num:
+                inline_refs[inline_ref_num] = inline_ref_link
 
         # create reference footer section again
-        for i, link in enumerate(all_links):
-            link_to_reference = '](' + str(link) + ')'
+        for reference_index, reference_val in inline_refs.items():
+            link_to_reference = '](' + str(reference_val) + ')'
             # i is incremented by one in order to start references indexes at 1
-            content = content.replace(link_to_reference, '][' + str(i + 1) + ']')
+            content = content.replace(link_to_reference, '][' + str(reference_index) + ']')
 
         # assign completed content changes
-        node.modified_lines = content.splitlines(keepends=True)
+        # splitlines splits on other weird characters that are sometimes copied and pasted in md files, lets remove
+        # https://docs.python.org/3/library/stdtypes.html#str.splitlines
+        # TODO: better way to do this?
+        cleaned_content = content.replace("\u2029", "") # Paragraph Separator
+        cleaned_content = cleaned_content.replace("\u2028", "") # Line Separator
+        cleaned_content = cleaned_content.replace("\x85", "") # Next Line (C1 Control Code)
+        cleaned_content = cleaned_content.replace("\x1e", "") # Record Separator
+        cleaned_content = cleaned_content.replace("\x1d", "") # Group Separator
+        cleaned_content = cleaned_content.replace("\x1c", "") # File Separator
+        cleaned_content = cleaned_content.replace("\x0c", "") # Form Feed
+        cleaned_content = cleaned_content.replace("\x0b", "") # Line Tabulation
+        node.modified_lines = cleaned_content.splitlines(keepends=True)
 
         if not start_line:
             start_line = len(node.modified_lines) - 1 if node.parent else len(node.modified_lines)
             end_line = start_line
         if end_line == 0:
             end_line = start_line + 1
-        node.modified_lines[start_line:end_line] = [f"[{i+1}]: {link}\n" for i, link in enumerate(all_links)]
+        node.modified_lines[start_line:end_line] = [f"[{i}]: {link}\n" for i, link in inline_refs.items()]
     else:
         # ignored nodes we still need to return its original text or its removed
         node.modified_lines = node.lines
