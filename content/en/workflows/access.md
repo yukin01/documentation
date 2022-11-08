@@ -1,5 +1,5 @@
 ---
-title: Authentication
+title: Access and Authentication
 kind: documentation
 disable_toc: false
 is_beta: true
