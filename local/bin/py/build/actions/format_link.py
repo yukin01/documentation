@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import argparse
+import os
 import re
 import glob
 from collections import OrderedDict
@@ -25,14 +26,28 @@ class Formatter(logging.Formatter):
 
 
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(stream=sys.stdout)
-handler.setFormatter(Formatter())
-logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
+
+# log colored streams
+stream_handler = logging.StreamHandler(stream=sys.stdout)
+stream_handler.setFormatter(Formatter())
+stream_handler.setLevel(logging.INFO)
+logger.addHandler(stream_handler)
+
+# log only debug messages to file in ci
+if os.getenv("CI_COMMIT_REF_NAME"):
+    file_handler = logging.FileHandler('format_link.debug.log')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.addFilter(lambda record: record.levelno == logging.DEBUG)
+    logger.addHandler(file_handler)
 
 
 class Node:
-    def __init__(self, name):
+    # TODO: cleanup interactions and instance variables
+    __slots__ = ['name', 'children', 'parent', 'lines', 'modified_lines', 'start_line', 'end_line', 'start', 'end',
+                 'ignore']
+
+    def __init__(self, name, ignore=False):
         self.name = name
         self.children = []
         self.parent = None
@@ -42,6 +57,7 @@ class Node:
         self.end_line = 0
         self.start = 0
         self.end = 0
+        self.ignore = ignore
 
     def add(self, child):
         child.parent = self
@@ -73,7 +89,7 @@ def parse_file(file):
 
     open_tag_regex = r"{{[<|%]\s+([A-Za-z0-9-_]+)(.*)\s+[%|>]}}"
     closed_tag_regex = r"{{[<|%]\s+/([A-Za-z0-9-_]+)(.*)\s*[%|>]}}"
-    backtick_code_regex = r"(```)"
+    ignore_shortcodes = ('code-block', )
 
     # list of tags that don't have open/close and are just one liner
     # TODO: this isn't sustainable, we need to detect one liners or specify includes not excludes
@@ -90,37 +106,47 @@ def parse_file(file):
     with open(file, 'r', encoding='utf-8') as f:
         new_line_number = 0
         for line_number, line in enumerate(f):
-            current_node.push_line(line)
 
-            # find new open tags and create a node
+            # store the current line in the current node
+            current_node.push_line(line)
             new_node = None
+
+            # is this an opening triple backtick code block
+            if line.startswith("```") and current_node.name != "```":
+                current_node.start = 0
+                new_node = Node("```", True)
+
+            # find new open shortcode tags and create a node
             matches = re.finditer(open_tag_regex, line, re.MULTILINE)
             for matchNum, match in enumerate(matches, start=1):
-                tag_name = match.group(1)
-                current_node.start = match.start(0)
+                tag_name, current_node.start = match.group(1), match.start(0)
                 if tag_name not in one_liner_tags:
-                    new_node = Node(tag_name)
-                    current_node.add(new_node)
+                    new_node = Node(tag_name, tag_name in ignore_shortcodes)
 
             # if we entered a new node lets set it as the current
             if new_node:
+                current_node.add(new_node)
                 current_node = new_node
                 current_node.push_line(line)
                 current_node.start_line = new_line_number
                 new_line_number = 0
 
+            # is this a closing triple backtick code block
+            if current_node.name == "```" and line.startswith("```") and not new_node:
+                current_node.end = 0
+                current_node.end_line = current_node.start_line + 1
+                new_line_number = current_node.end_line
+                current_node = current_node.parent
+                current_node.push_line(line)
+
             # check for closing node and return up the chain to the parent node for next iteration
             matches = re.finditer(closed_tag_regex, line, re.MULTILINE)
             for matchNum, match in enumerate(matches, start=1):
-                tag_name = match.group(1)
-                current_node.end = match.end(0)
+                tag_name, current_node.end = match.group(1), match.end(0)
                 if tag_name == current_node.name and current_node.parent:
                     # if we closed on the same line we don't want to add the line again and end_line is the same
                     is_same_line = new_line_number == 0
-                    if is_same_line:
-                        current_node.end_line = current_node.start_line
-                    else:
-                        current_node.end_line = current_node.start_line + 1
+                    current_node.end_line = current_node.start_line if is_same_line else current_node.start_line + 1
                     new_line_number = current_node.end_line
                     current_node = current_node.parent
                     if not is_same_line:
@@ -136,13 +162,11 @@ def parse_file(file):
 
 def process_nodes(node):
     """
+    TODO: this function is way too big
     Takes the parsed node structure and processes the link formatting we desire throughout each node.
     @param node: node
     """
-    ignored_nodes = ('code-block', )
-
-    # we want to skip code-block nodes
-    if node.name not in ignored_nodes:
+    if not node.ignore:
         content = ''.join(node.lines)
 
         # extract footer reference links
@@ -153,7 +177,7 @@ def process_nodes(node):
             ref_num, ref_link = int(match.group(1)), match.group(2)
             # alert on duplicate reference numbers
             if ref_num in ref_nums:
-                logger.warning(f'{node} has duplicated reference index numbers:\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}')
+                logger.warning(f'{node} has duplicated reference index numbers (Skipping Format):\n\t[{ref_num}]: {ref_link}\n\t[{ref_num}]: {refs[ref_num]}')
                 raise SystemExit
             else:
                 refs[ref_num] = ref_link
@@ -166,8 +190,6 @@ def process_nodes(node):
         if not all_references and re.search(r"\[.*?\]\[(?![#?])(\S*?)\]", content) is not None:
             matches = re.finditer(r"\[.*?\]\[(?![#?])(\S*?)\]", content, re.MULTILINE)
             logger.warning(f"{node} has no footer links but references them:\n" + "\n".join([f"\t{match.group(0)}" for match in matches]))
-
-        # we need to raise the error and return the original section, so hugo can fail with this
 
         # remove footer reference links
         # content = re.sub(r"^\s*\[(\d*?)\]: (\S*)", "", content, 0, re.MULTILINE)
