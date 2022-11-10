@@ -716,24 +716,24 @@ main:
     url: dashboards/widgets/slo/
     parent: dashboards_widgets
     weight: 30
-  - name: Service Map
-    url: dashboards/widgets/service_map/
-    parent: dashboards_widgets
-    weight: 31
   - name: Service Summary
     url: dashboards/widgets/service_summary/
     parent: dashboards_widgets
-    weight: 32
+    weight: 31
   - name: Table
     url: dashboards/widgets/table/
     parent: dashboards_widgets
-    weight: 33
+    weight: 32
   - name: Timeseries
     url: dashboards/widgets/timeseries/
     parent: dashboards_widgets
-    weight: 34
+    weight: 33
   - name: Top List
     url: dashboards/widgets/top_list/
+    parent: dashboards_widgets
+    weight: 34
+  - name: Topology Map
+    url: dashboards/widgets/topology_map/
     parent: dashboards_widgets
     weight: 35
   - name: Querying
@@ -978,26 +978,31 @@ main:
     parent: serverless
     identifier: serverless_app_services
     weight: 8
+  - name: Azure Container Apps
+    url: serverless/azure_container_apps
+    parent: serverless
+    identifier: serverless_container_apps
+    weight: 9
   - name: Google Cloud Run
     url: serverless/google_cloud_run
     parent: serverless
     identifier: serverless_gcr
-    weight: 9
+    weight: 10
   - name: Troubleshooting
     url: serverless/troubleshooting
     parent: serverless
     identifier: serverless_troubleshooting
-    weight: 10
+    weight: 11
   - name: Glossary
     url: serverless/glossary
     parent: serverless
     identifier: serverless_glossary
-    weight: 11
+    weight: 12
   - name: Guides
     url: serverless/guide/
     identifier: serverless_guides
     parent: serverless
-    weight: 12
+    weight: 13
   - name: Cloud Cost
     url: cloud_cost_management/
     pre: cloud-cost-management
@@ -2542,8 +2547,8 @@ main:
     parent: cloud_siem
     identifier: cloud_siem_signals_explorer
     weight: 5
-  - name: Cloud Security Investigator
-    url: security_platform/cloud_siem/cloud_security_investigator
+  - name: Cloud SIEM Investigator
+    url: security_platform/cloud_siem/cloud_siem_investigator
     parent: cloud_siem
     identifier: cloud_siem_cloud_security_investigator
     weight: 6
