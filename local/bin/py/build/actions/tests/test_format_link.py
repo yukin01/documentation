@@ -151,18 +151,18 @@ class TestAssembleNodes(unittest.TestCase):
     def test_should_return_nested_text(self):
         node = Node('root')
         node.name = "root"
-        node.start_line = 0
-        node.end_line = 0
-        node.start = 0
-        node.end = 0
+        node.line_start = 0
+        node.line_end = 0
+        node.char_start = 0
+        node.char_end = 0
         node.lines = ['This is root\n', 'and some more\n', '{{% tab "test" %}}\n']
         node.modified_lines = ['This is root\n', 'and some more\n', '{{% tab "test" %}}\n']
         tab_node = Node('tab')
         tab_node.name = "test"
-        tab_node.start_line = 2
-        tab_node.end_line = 3
-        tab_node.start = 0
-        tab_node.end = 12
+        tab_node.line_start = 2
+        tab_node.line_end = 3
+        tab_node.char_start = 0
+        tab_node.char_end = 12
         tab_node.lines = ['This is root\n', 'and some more\n', '{{% tab "test" %}}\n']
         tab_node.modified_lines = ['{{% tab "test" %}}\n', 'Here is some text\n', '{{% /tab %}}\n']
         node.children.append(tab_node)

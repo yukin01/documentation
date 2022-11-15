@@ -5,7 +5,7 @@ import argparse
 import os
 import re
 import glob
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import logging
 import sys
 from pathlib import Path
@@ -43,20 +43,14 @@ if os.getenv("CI_COMMIT_REF_NAME"):
 
 
 class Node:
-    # TODO: cleanup interactions and instance variables
-    __slots__ = ['name', 'children', 'parent', 'lines', 'modified_lines', 'start_line', 'end_line', 'start', 'end',
-                 'ignore', 'is_closing_shortcode']
+    __slots__ = ['name', 'children', 'parent', 'lines', 'modified_lines', 'position', 'ignore', 'is_closing_shortcode',
+                 'line_start', 'line_end', 'char_start', 'char_end']
 
     def __init__(self, name, ignore=False):
         self.name = name
-        self.children = []
         self.parent = None
-        self.lines = []
-        self.modified_lines = []
-        self.start_line = 0
-        self.end_line = 0
-        self.start = 0
-        self.end = 0
+        self.children, self.lines, self.modified_lines = [], [], []
+        self.line_start, self.line_end, self.char_start, self.char_end = 0, 0, 0, 0
         self.ignore = ignore
         self.is_closing_shortcode = False
 
@@ -69,6 +63,17 @@ class Node:
 
     def pop_line(self):
         return self.lines.pop()
+
+    def reparent_children(self, node):
+        # moves nodes children and put it adjacent to node
+        children, self.children[:] = self.children[:], []
+        self.parent.children += children
+        for child in children:
+            # adjust child line offsets
+            child.line_start += self.line_start
+            child.line_end += self.line_start
+            # re-parent
+            child.parent = node
 
     def __repr__(self):
         return repr(f"<{self.name}>")
@@ -103,14 +108,14 @@ def parse_file(file):
             # is this an opening triple backtick code block
             tickmatches = list(re.finditer("^\s*```", line, re.MULTILINE))
             if tickmatches and current_node.name != "```":
-                current_node.start = 0
+                current_node.char_start = 0
                 new_node = Node("```", True)
 
             # find new open shortcode tags and create a node
             if not current_node.ignore:
                 matches = re.finditer(open_tag_regex, line, re.MULTILINE)
                 for matchNum, match in enumerate(matches, start=1):
-                    tag_name, current_node.start, current_node.end = match.group(1), match.start(0), match.end()
+                    tag_name, current_node.char_start, current_node.char_end = match.group(1), match.start(0), match.end()
                     new_node = Node(tag_name, tag_name in ignore_shortcodes)
 
             # if we entered a new node lets set it as the current
@@ -118,28 +123,28 @@ def parse_file(file):
                 current_node.add(new_node)
                 current_node = new_node
                 current_node.push_line(line)
-                current_node.start_line = new_line_number
+                current_node.line_start = new_line_number
                 new_line_number = 0
 
             # is this a closing triple backtick code block
             if current_node.name == "```" and tickmatches and not new_node:
                 current_node.is_closing_shortcode = True
-                current_node.end = 0
-                current_node.end_line = current_node.start_line + 1
-                new_line_number = current_node.end_line
+                current_node.char_end = 0
+                current_node.line_end = current_node.line_start + 1
+                new_line_number = current_node.line_end
                 current_node = current_node.parent
                 current_node.push_line(line)
 
             # check for closing node and return up the chain to the parent node for next iteration
             matches = re.finditer(closed_tag_regex, line, re.MULTILINE)
             for matchNum, match in enumerate(matches, start=1):
-                tag_name, current_node.end = match.group(1), match.end(0)
+                tag_name, current_node.char_end = match.group(1), match.end(0)
                 if tag_name == current_node.name and current_node.parent:
                     current_node.is_closing_shortcode = True
                     # if we closed on the same line we don't want to add the line again and end_line is the same
                     is_same_line = new_line_number == 0
-                    current_node.end_line = current_node.start_line if is_same_line else current_node.start_line + 1
-                    new_line_number = current_node.end_line
+                    current_node.line_end = current_node.line_start if is_same_line else current_node.line_start + 1
+                    new_line_number = current_node.line_end
                     current_node = current_node.parent
                     if not is_same_line:
                         current_node.push_line(line)
@@ -157,25 +162,30 @@ def parse_file(file):
 
 def adjust_one_liner_shortcodes(node):
     """
-    As we can't find a closing tag for a one liner everything becomes nested under this shortcode
-    which isn't accurate. So lets readjust once we know
+    Problem: As we can't find a closing tag for a one liner shortcode everything becomes nested under this shortcode
+    Solution: Now we have finished parsing the file, this functions purpose is to adjust the hierarchy knowing that
+    children of a one lined shortcode should really be adjacent nodes
     @param node: node
+
+    e.g where partial is a one lined unclosed shortcode
+    this:
+    <root>
+        <partial>
+            <site-region>
+
+    becomes this:
+    <root>
+        <partial>
+        <site-region>
     """
     for i, n in enumerate(node.children):
         if not n.is_closing_shortcode:
-            n.end_line = n.start_line
-            # take nodes children and put it adjacent to node
-            r, node.children[i].children[:] = n.children[:], []
-            node.children += r
-            for d in r:
-                # adjust child line offsets
-                d.start_line = d.start_line + n.start_line
-                d.end_line = d.end_line + n.start_line
-                # re-parent
-                d.parent = node
+            n.line_end = n.line_start
+            n.reparent_children(node)
             # move lines of text to parent
-            foo, node.children[i].lines = n.lines[1:], n.lines[0:1]
-            node.lines += foo
+            lines_without_first, n.lines = n.lines[1:], n.lines[0:1]
+            n.char_end = len(n.lines[0])
+            node.lines += lines_without_first
         adjust_one_liner_shortcodes(n)
 
 
@@ -300,24 +310,13 @@ def assemble_nodes(node):
     output = [] + node.modified_lines
     for child in reversed(node.children):
         child_output = assemble_nodes(child)
-        if child.start_line == child.end_line:
-            # single line shortcode
-            line = output[child.start_line]
-            if child.is_closing_shortcode:
-                if child_output:
-                    output[child.start_line] = line[:child.start] + child_output + line[child.end:]
-                else:
-                    # lets just use the full line for now
-                    # TODO: rebuild from char start to char end like above for interspersed shortcode amongst text
-                    #       e.g something like line[:child.start] + line[child.end:] should work but doesn't
-                    output[child.start_line] = line
-            else:
-                #output[child.start_line] = line[child.start:child.end]
-                output[child.start_line] = line
-
+        if not child.is_closing_shortcode or child.line_start == child.line_end:
+            # single line shortcode open or closed
+            line: str = output[child.line_start]
+            output[child.line_start] = line[:child.char_start] + "".join(child_output) + line[child.char_end:]
         else:
             # multi line shortcode
-            output[child.start_line:child.end_line + 1] = child_output
+            output[child.line_start:child.line_end + 1] = child_output
     return output
 
 
