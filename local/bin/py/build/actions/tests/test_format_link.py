@@ -19,8 +19,8 @@ class TestParse(unittest.TestCase):
         read_data='**Note**: Mention ```@zenduty``` as a channel under **Notify your team**'))
     def test_inline_triple_backtick_parses(self):
         actual = parse_file('/content/en/foo.md')
-        expected = Node("root")
-        self.assertEqual(actual, expected)
+        # inline triple backtick shouldn't parse as a node
+        self.assertEqual(len(actual.children), 0)
 
     @mock.patch('format_link.open', new=mock.mock_open(
         read_data='## Further Reading\n{{< partial name="whats-next/whats-next.html" >}}'))
@@ -69,9 +69,13 @@ is text {{< foobar test="stuff" >}} and more
 Stuff here
 {{</ tab >}}"""))
     def test_non_closing_shortcode_unknown(self):
+        """
+        we expect everything to get nested when we encounter a single/non closing shortcode
+        so for now we expect 1
+        """
         parsed = parse_file('/content/en/foo.md')
         actual = len(parsed.children)
-        expected = 2
+        expected = 1
         self.assertEqual(actual, expected)
 
     @mock.patch('format_link.open', new=mock.mock_open(read_data="""
@@ -115,7 +119,8 @@ Hello world 2
 """))
     def test_common_whatsnext_shortcodes(self):
         parsed = parse_file('/content/en/foo.md')
-        actual = len(parsed.children)
+        whatsnext = parsed.children[0]
+        actual = len(whatsnext.children)
         expected = 5
         self.assertEqual(actual, expected)
 
@@ -175,17 +180,17 @@ class TestProcessNodes(unittest.TestCase):
     def test_process_shortcodes_on_same_line(self):
         node = Node('root')
         node.name = 'root'
-        node.start = 2
-        node.end = 18
-        node.end_line = 0
-        node.start_line = 0
+        node.char_start = 2
+        node.char_end = 18
+        node.line_end = 0
+        node.line_start = 0
         node.lines = ['---\n', 'title: Container Monitoring\n', 'kind: documentation\n', 'description: Install & configure the Agent to collect data on containerized infrastructures\n', '---\n', '\n', '## Overview\n', '\n', 'Container Monitoring provides real-time visibility into the health and performance of containerized environments.\n', '\n', '{{< whatsnext desc="This section includes the following topics:">}}\n', '  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n', '{{< /whatsnext >}}\n']
         nextlink_node = Node('nextlink')
         nextlink_node.lines = ['  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n']
-        nextlink_node.end = 125
-        nextlink_node.end_line = 12
-        nextlink_node.start = 0
-        nextlink_node.start_line = 11
+        nextlink_node.char_end = 125
+        nextlink_node.line_end = 12
+        nextlink_node.char_start = 0
+        nextlink_node.line_start = 11
         node.children = [
             nextlink_node
         ]
@@ -211,6 +216,22 @@ class TestProcessNodes(unittest.TestCase):
     # Also we should do a warning too?
     # content/en/logs/explorer/visualize.md
 
+    def test_node_inline_link_creates_footer(self):
+        """A tab with one inline link and nothing else should create footer links and reference it"""
+        node = Node('root')
+        node.lines = [
+            "## Overview\n", "\n",
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n",
+            "{{< foobar >}}\n",
+            "Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n",
+            "Suspendisse odio augue, posuere commodo faucibus non, elementum et metus.\n",
+            "Lorem ipsum dolor sit amet, [consectetur](https://duckduckgo.com) adipiscing elit.\n",
+            "{{< /foobar >}}\n",
+            "\n",
+        ]
+        process_nodes(node)
+        self.assertIn("[1]: https://duckduckgo.com", ''.join(node.modified_lines))
+
     # test should remove duplicate urls and condense them
     def test_duplicate_links_cleaned(self):
         """We should remove the duplicate foot urls as we encounter them"""
@@ -233,7 +254,9 @@ class TestProcessNodes(unittest.TestCase):
         ]
         process_nodes(node)
         self.assertIn("[3]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
+        self.assertIn("[4]: /continuous_integration/tests/", ''.join(node.modified_lines))
         self.assertNotIn("[5]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
+        self.assertNotIn("[6]: /continuous_integration/tests/", ''.join(node.modified_lines))
 
     def test_footer_numbers_reordered_after(self):
         """if we have 1,2,3,4,5 and we remove 3 items to the right should reorder only"""

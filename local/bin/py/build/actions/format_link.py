@@ -151,9 +151,6 @@ def parse_file(file):
 
             new_line_number += 1
 
-    # any node that is false still is a one liner
-    adjust_one_liner_shortcodes(root)
-
     if not root.lines:
         raise ValueError
 
@@ -195,7 +192,7 @@ def process_nodes(node):
     Takes the parsed node structure and processes the link formatting we desire throughout each node.
     @param node: node
     """
-    if node.ignore or not node.is_closing_shortcode:
+    if node.name != 'root' and (node.ignore or not node.is_closing_shortcode):
         # ignored nodes we still need to return its original text or its removed
         node.modified_lines = node.lines
     else:
@@ -233,7 +230,7 @@ def process_nodes(node):
                 else:
                     start_line = ln
 
-        # inline existing reference links
+        # inline existing footer reference links
         for reference_index, reference_val in all_references.items():
             current_link = f'][{reference_index}]'
             content = content.replace(current_link, f']({reference_val})')
@@ -250,6 +247,9 @@ def process_nodes(node):
             inline_ref_num = all_references_flipped.get(inline_ref_link, None)
             if inline_ref_num:
                 refs[inline_ref_num] = inline_ref_link
+            else:
+                # link that wasn't in existing footer list, start at 1000 to avoid conflicts.
+                refs[len(refs) + 1000] = inline_ref_link
         inline_refs = OrderedDict(sorted(refs.items()))
 
         # re-order numbers where needed
@@ -345,6 +345,8 @@ def format_link_file(*args):
     filepath = args[0]
     # parse the file shortcode hierarchy
     root = parse_file(filepath)
+    # any node that is false still is a one liner
+    adjust_one_liner_shortcodes(root)
     # process each node text contents, each node will store original and modified content
     process_nodes(root)
     # reassemble the file with the changes we have made
