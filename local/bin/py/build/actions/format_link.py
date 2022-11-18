@@ -183,6 +183,9 @@ def adjust_one_liner_shortcodes(node):
             lines_without_first, n.lines = n.lines[1:], n.lines[0:1]
             n.char_end = len(n.lines[0])
             node.lines += lines_without_first
+            # adjust child content to just be the tag
+            # e.g 'Lorem ipsum {{ something foo="bar" }} foobar\n' becomes '{{ something foo="bar" }}'
+            n.lines = [n.lines[0][n.char_start:n.char_end]]
         adjust_one_liner_shortcodes(n)
 
 
@@ -292,7 +295,8 @@ def process_nodes(node):
             end_line = start_line
         if end_line == 0:
             end_line = start_line + 1
-        node.modified_lines[start_line:end_line] = [f"[{i}]: {link}\n" for i, link in inline_refs.items()]
+        if inline_refs:
+            node.modified_lines[start_line:end_line] = [f"[{i}]: {link}\n" for i, link in inline_refs.items()]
 
     # process children
     for child in node.children:
@@ -310,10 +314,17 @@ def assemble_nodes(node):
     output = [] + node.modified_lines
     for child in reversed(node.children):
         child_output = assemble_nodes(child)
-        if not child.is_closing_shortcode or child.line_start == child.line_end:
-            # single line shortcode open or closed
-            line: str = output[child.line_start]
-            output[child.line_start] = line[:child.char_start] + "".join(child_output) + line[child.char_end:]
+        is_same_line = child.line_start == child.line_end
+        if is_same_line:
+            if child.is_closing_shortcode:
+                # single line shortcode closed e.g foo bar {{< shortcode >}}inside{{< /shortcode >}} baz durp
+                # TODO: we are temporarily returning the whole line, we should do the else clause with some work
+                # TODO: we need to add support for parsing single line closed shortcodes and then the else will work
+                output[child.line_start:child.line_end + 1] = child_output
+            else:
+                # single line shortcode open e.g {{< img src="foo.mp4" >}}
+                line: str = output[child.line_start]
+                output[child.line_start] = line[:child.char_start] + "".join(child_output) + line[child.char_end:]
         else:
             # multi line shortcode
             output[child.line_start:child.line_end + 1] = child_output
