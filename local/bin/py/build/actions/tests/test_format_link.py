@@ -175,6 +175,75 @@ class TestAssembleNodes(unittest.TestCase):
         expected = ['This is root\n', 'and some more\n', '{{% tab "test" %}}\n', 'Here is some text\n', '{{% /tab %}}\n']
         self.assertEqual(expected, actual)
 
+    def test_indentation(self):
+        root = Node('root')
+        root.lines = [
+            '5. After you upload the IdP Meta-data and configure your IdP, enable SAML in Datadog by clicking the **Enable** button.\n',
+            '    {{< img src="account_management/saml/saml_enable.png" alt="saml enable"  >}}\n'
+            '6. Once SAML is configured in Datadog and your IdP is set up to accept requests from Datadog, users can log in:'
+        ]
+        root.modified_lines = [
+            '5. After you upload the IdP Meta-data and configure your IdP, enable SAML in Datadog by clicking the **Enable** button.\n',
+            '    {{< img src="account_management/saml/saml_enable.png" alt="saml enable"  >}}\n'
+            '6. Once SAML is configured in Datadog and your IdP is set up to accept requests from Datadog, users can log in:'
+        ]
+        actual = assemble_nodes(root)
+        self.assertEqual(''.join(root.modified_lines), ''.join(actual))
+
+    def test_whatsnext_block(self):
+        root = Node('root')
+        root.lines = [
+            '{{< whatsnext desc="This section includes the following topics:">}}\n',
+            '  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n',
+            '  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}\n',
+            '{{< /whatsnext >}}\n'
+        ]
+        # create whats next
+        whatsnext = Node('whatsnext')
+        whatsnext.char_start = 2
+        whatsnext.char_end = 18
+        whatsnext.line_end = 2
+        whatsnext.line_start = 1
+        whatsnext.ignore = False
+        whatsnext.is_closing_shortcode = True
+        whatsnext.lines = [
+            '{{< whatsnext desc="This section includes the following topics:">}}\n',
+            '  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n',
+            '  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}\n',
+            '{{< /whatsnext >}}\n'
+        ]
+        whatsnext.modified_lines = [
+            '{{< whatsnext desc="This section includes the following topics:">}}\n',
+            '  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n',
+            '  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}\n',
+            '{{< /whatsnext >}}\n'
+        ]
+        # create 2 nextlinks and add to whatsnext
+        nextlink1 = Node('nextlink')
+        nextlink1.char_start = 0
+        nextlink1.char_end = 125
+        nextlink1.line_start = 1
+        nextlink1.line_end = 1
+        nextlink1.ignore = False
+        nextlink1.is_closing_shortcode = True
+        nextlink1.lines = ['  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n']
+        nextlink1.modified_lines = ['  {{< nextlink href="/containers/docker">}}<u>Docker</u>: Install and configure the Datadog Agent on Docker.{{< /nextlink >}}\n']
+        whatsnext.add(nextlink1)
+        nextlink2 = Node('nextlink')
+        nextlink2.char_start = 0
+        nextlink2.char_end = 138
+        nextlink2.line_start = 2
+        nextlink2.line_end = 2
+        nextlink2.ignore = False
+        nextlink2.is_closing_shortcode = True
+        nextlink2.lines = ['  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}\n']
+        nextlink2.modified_lines = ['  {{< nextlink href="/containers/kubernetes">}}<u>Kubernetes</u>: Install and configure the Datadog Agent on Kubernetes. {{< /nextlink >}}\n']
+        nextlink2.parent = whatsnext
+        whatsnext.add(nextlink2)
+        root.add(whatsnext)
+        actual = assemble_nodes(root)
+        self.assertIn('href="/containers/docker"', ''.join(actual))
+
 
 class TestProcessNodes(unittest.TestCase):
     def test_process_shortcodes_on_same_line(self):
