@@ -264,6 +264,27 @@
       "description": "Search events returns \"OK\" response with pagination"
     }
   ],
+  "GetFastlyAccount": [
+    {
+      "group": "fastly_integration",
+      "suffix": "_668667521",
+      "description": "Get Fastly account returns \"OK\" response"
+    }
+  ],
+  "ListFastlyAccounts": [
+    {
+      "group": "fastly_integration",
+      "suffix": "_1292636016",
+      "description": "List Fastly accounts returns \"OK\" response"
+    }
+  ],
+  "UpdateFastlyAccount": [
+    {
+      "group": "fastly_integration",
+      "suffix": "_1554517956",
+      "description": "Update Fastly account returns \"OK\" response"
+    }
+  ],
   "CreateIncidentService": [
     {
       "group": "incident_services",
@@ -592,11 +613,6 @@
       "group": "logs_metrics",
       "suffix": "",
       "description": "Update a log-based metric returns \"OK\" response"
-    },
-    {
-      "group": "logs_metrics",
-      "suffix": "_1901534424",
-      "description": "Update a log-based metric with include_percentiles field returns \"OK\" response"
     }
   ],
   "CreateBulkTagsMetricsConfiguration": [

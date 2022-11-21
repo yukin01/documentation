@@ -2831,6 +2831,191 @@ components:
             from the other indexes.
           type: string
       type: object
+    FastlyAccounResponseAttributes:
+      description: Attributes object of a Fastly account.
+      properties:
+        name:
+          description: The name of the Fastly account.
+          example: test-name
+          type: string
+        services:
+          description: A list of services belonging to the parent account.
+          items:
+            $ref: '#/components/schemas/FastlyServiceRequestAttributes'
+          type: array
+      required:
+      - name
+      type: object
+    FastlyAccountCreateRequest:
+      description: Payload schema when adding a Fastly account.
+      properties:
+        data:
+          $ref: '#/components/schemas/FastlyAccountCreateRequestData'
+      required:
+      - data
+      type: object
+    FastlyAccountCreateRequestAttributes:
+      description: Attributes object for creating a Fastly account.
+      properties:
+        api_key:
+          description: The API key for the Fastly account.
+          example: ABCDEFG123
+          type: string
+        name:
+          description: The name of the Fastly account.
+          example: test-name
+          type: string
+        services:
+          description: A list of services belonging to the parent account.
+          items:
+            $ref: '#/components/schemas/FastlyServiceRequestAttributes'
+          type: array
+      required:
+      - api_key
+      - name
+      type: object
+    FastlyAccountCreateRequestData:
+      description: Data object for creating a Fastly account.
+      properties:
+        attributes:
+          $ref: '#/components/schemas/FastlyAccountCreateRequestAttributes'
+        id:
+          description: The ID of the Fastly account, a hash of the account name.
+          example: abc123
+          type: string
+        type:
+          $ref: '#/components/schemas/FastlyAccountType'
+      required:
+      - attributes
+      - id
+      - type
+      type: object
+    FastlyAccountResponse:
+      description: The expected response schema when getting a Fastly account.
+      properties:
+        data:
+          $ref: '#/components/schemas/FastlyAccountResponseData'
+      type: object
+    FastlyAccountResponseData:
+      description: Data object of a Fastly account.
+      properties:
+        attributes:
+          $ref: '#/components/schemas/FastlyAccounResponseAttributes'
+        id:
+          description: The ID of the Fastly account, a hash of the account name.
+          example: abc123
+          type: string
+        type:
+          $ref: '#/components/schemas/FastlyAccountType'
+      required:
+      - attributes
+      - id
+      - type
+      type: object
+    FastlyAccountType:
+      default: fastly-accounts
+      description: The JSON:API type for this API. Should always be `fastly-accounts`.
+      enum:
+      - fastly-accounts
+      example: fastly-accounts
+      type: string
+      x-enum-varnames:
+      - FASTLY_ACCOUNTS
+    FastlyAccountUpdateRequest:
+      description: Payload schema when updating a Fastly account.
+      properties:
+        data:
+          $ref: '#/components/schemas/FastlyAccountUpdateRequestData'
+      required:
+      - data
+      type: object
+    FastlyAccountUpdateRequestAttributes:
+      description: Attributes object for updating a Fastly account.
+      properties:
+        api_key:
+          description: The API key of the Fastly account.
+          example: ABCDEFG123
+          type: string
+        services:
+          description: A list of services belonging to the parent account.
+          items:
+            $ref: '#/components/schemas/FastlyServiceRequestAttributes'
+          type: array
+      type: object
+    FastlyAccountUpdateRequestData:
+      description: Data object for updating a Fastly account.
+      properties:
+        attributes:
+          $ref: '#/components/schemas/FastlyAccountUpdateRequestAttributes'
+      type: object
+    FastlyAccountsResponse:
+      description: The expected response schema when getting Fastly accounts.
+      properties:
+        data:
+          description: The JSON:API data schema.
+          items:
+            $ref: '#/components/schemas/FastlyAccountResponseData'
+          type: array
+      type: object
+    FastlyServiceRequest:
+      description: Payload schema for Fastly service requests.
+      properties:
+        data:
+          $ref: '#/components/schemas/FastlyServiceRequestData'
+      required:
+      - data
+      type: object
+    FastlyServiceRequestAttributes:
+      description: Attributes object for Fastly service requests.
+      properties:
+        tags:
+          description: A list of tags for the Fastly service.
+          example:
+          - myTag
+          - myTag2:myValue
+          items:
+            type: string
+          type: array
+      type: object
+    FastlyServiceRequestData:
+      description: Data object for Fastly service requests.
+      properties:
+        attributes:
+          $ref: '#/components/schemas/FastlyServiceRequestAttributes'
+        id:
+          description: The ID of the Fastly service.
+          example: abc123
+          type: string
+        type:
+          $ref: '#/components/schemas/FastlyServiceType'
+      required:
+      - id
+      - type
+      type: object
+    FastlyServiceResponse:
+      description: The expected response schema when getting a Fastly service.
+      properties:
+        data:
+          $ref: '#/components/schemas/FastlyServiceRequestData'
+      type: object
+    FastlyServiceType:
+      default: fastly-services
+      description: The JSON:API type for this API. Should always be `fastly-services`.
+      enum:
+      - fastly-services
+      example: fastly-services
+      type: string
+      x-enum-varnames:
+      - FASTLY_SERVICES
+    FastlyServicesResponse:
+      description: The expected response schema when getting Fastly services.
+      properties:
+        data:
+          description: The JSON:API data schema.
+          items:
+            $ref: '#/components/schemas/FastlyServiceResponse'
+          type: array
+      type: object
     FullAPIKey:
       description: Datadog API key.
       properties:
@@ -5037,8 +5222,6 @@ components:
       properties:
         aggregation_type:
           $ref: '#/components/schemas/LogsMetricComputeAggregationType'
-        include_percentiles:
-          $ref: '#/components/schemas/LogsMetricComputeIncludePercentiles'
         path:
           description: The path to the value the log-based metric will aggregate on
             (only used if the aggregation type is a "distribution").
@@ -5057,13 +5240,6 @@ components:
       x-enum-varnames:
       - COUNT
       - DISTRIBUTION
-    LogsMetricComputeIncludePercentiles:
-      description: 'Toggle to include or exclude percentile aggregations for distribution
-        metrics.
-
-        Only present when the `aggregation_type` is `distribution`.'
-      example: true
-      type: boolean
     LogsMetricCreateAttributes:
       description: The object describing the Datadog log-based metric to create.
       properties:
@@ -5155,8 +5331,6 @@ components:
       properties:
         aggregation_type:
           $ref: '#/components/schemas/LogsMetricResponseComputeAggregationType'
-        include_percentiles:
-          $ref: '#/components/schemas/LogsMetricComputeIncludePercentiles'
         path:
           description: The path to the value the log-based metric will aggregate on
             (only used if the aggregation type is a "distribution").
@@ -5218,8 +5392,6 @@ components:
     LogsMetricUpdateAttributes:
       description: The log-based metric properties that will be updated.
       properties:
-        compute:
-          $ref: '#/components/schemas/LogsMetricUpdateCompute'
         filter:
           $ref: '#/components/schemas/LogsMetricFilter'
         group_by:
@@ -5227,12 +5399,6 @@ components:
           items:
             $ref: '#/components/schemas/LogsMetricGroupBy'
           type: array
-      type: object
-    LogsMetricUpdateCompute:
-      description: The compute rule to compute the log-based metric.
-      properties:
-        include_percentiles:
-          $ref: '#/components/schemas/LogsMetricComputeIncludePercentiles'
       type: object
     LogsMetricUpdateData:
       description: The new log-based metric properties.
@@ -6031,7 +6197,7 @@ components:
           format: date-time
           type: string
         include_percentiles:
-          description: 'Toggle to include or exclude percentile aggregations for distribution
+          description: 'Toggle to turn on/off percentile aggregations for distribution
             metrics.
 
             Only present when the `metric_type` is `distribution`.'
@@ -12818,6 +12984,390 @@ paths:
         - STANDARD
       x-undo:
         type: idempotent
+  /api/v2/integrations/fastly/accounts:
+    get:
+      description: List Fastly accounts.
+      operationId: ListFastlyAccounts
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyAccountsResponse'
+          description: The schema representation of a Fastly account.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: List Fastly accounts
+      tags:
+      - Fastly Integration
+      x-menu-order: 1
+      x-undo:
+        type: safe
+    post:
+      description: Create a Fastly account.
+      operationId: CreateFastlyAccount
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FastlyAccountCreateRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyAccountResponse'
+          description: The schema representation of a Fastly account.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Add Fastly account
+      tags:
+      - Fastly Integration
+      x-codegen-request-body-name: body
+      x-given:
+        fastly_account:
+          parameters:
+          - name: body
+            value: "{\n  \"data\": {\n    \"type\": \"fastly-accounts\",\n    \"attributes\":
+              {\n      \"api_key\": \"{{ unique_alnum }}\",\n      \"name\": \"test-name\",\n
+              \     \"services\": []\n    }\n  }\n}"
+          step: there is a valid "fastly_account" in the system
+      x-menu-order: 2
+      x-undo:
+        operationId: DeleteFastlyAccount
+        parameters:
+        - name: account_id
+          source: data.id
+        type: unsafe
+  /api/v2/integrations/fastly/accounts/{account_id}:
+    delete:
+      description: Delete a Fastly account.
+      operationId: DeleteFastlyAccount
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: OK
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Delete Fastly account
+      tags:
+      - Fastly Integration
+      x-menu-order: 5
+      x-undo:
+        type: idempotent
+    get:
+      description: Get a Fastly account.
+      operationId: GetFastlyAccount
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyAccountResponse'
+          description: The schema representation of a Fastly account.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Get Fastly account
+      tags:
+      - Fastly Integration
+      x-menu-order: 3
+      x-undo:
+        type: safe
+    patch:
+      description: Update a Fastly account.
+      operationId: UpdateFastlyAccount
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FastlyAccountUpdateRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyAccountResponse'
+          description: The schema representation of a Fastly account.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Update Fastly account
+      tags:
+      - Fastly Integration
+      x-codegen-request-body-name: body
+      x-menu-order: 4
+      x-undo:
+        type: idempotent
+  /api/v2/integrations/fastly/accounts/{account_id}/services:
+    get:
+      description: List Fastly services for an account.
+      operationId: ListFastlyServices
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyServicesResponse'
+          description: The schema representation of a Fastly service.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: List Fastly services
+      tags:
+      - Fastly Integration
+      x-menu-order: 6
+      x-undo:
+        type: safe
+    post:
+      description: Create a Fastly service for an account.
+      operationId: CreateFastlyService
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FastlyServiceRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyServiceResponse'
+          description: The schema representation of a Fastly service.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Add Fastly service
+      tags:
+      - Fastly Integration
+      x-codegen-request-body-name: body
+      x-menu-order: 7
+      x-undo:
+        operationId: DeleteFastlyService
+        parameters:
+        - name: account_id
+          source: data.id
+        type: unsafe
+  /api/v2/integrations/fastly/accounts/{account_id}/services/{service_id}:
+    delete:
+      description: Delete a Fastly service for an account.
+      operationId: DeleteFastlyService
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      - description: None
+        in: path
+        name: service_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: OK
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Delete Fastly service
+      tags:
+      - Fastly Integration
+      x-menu-order: 10
+      x-undo:
+        type: safe
+    get:
+      description: Get a Fastly service for an account.
+      operationId: GetFastlyService
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      - description: None
+        in: path
+        name: service_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyServiceResponse'
+          description: The schema representation of a Fastly service.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Get Fastly service
+      tags:
+      - Fastly Integration
+      x-menu-order: 8
+      x-undo:
+        type: safe
+    patch:
+      description: Update a Fastly service for an account.
+      operationId: UpdateFastlyService
+      parameters:
+      - description: None
+        in: path
+        name: account_id
+        required: true
+        schema:
+          type: string
+      - description: None
+        in: path
+        name: service_id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FastlyServiceRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastlyServiceResponse'
+          description: The schema representation of a Fastly service.
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsResponse'
+      security:
+      - apiKeyAuth: []
+        appKeyAuth: []
+      summary: Update Fastly service
+      tags:
+      - Fastly Integration
+      x-codegen-request-body-name: body
+      x-menu-order: 9
+      x-undo:
+        type: safe
   /api/v2/logs:
     post:
       description: 'Send your logs to your Datadog platform over HTTP. Limits per
@@ -13550,15 +14100,6 @@ paths:
               \     },\n      \"compute\": {\n        \"aggregation_type\": \"count\"\n
               \     }\n    },\n    \"type\": \"logs_metrics\"\n  }\n}"
           step: there is a valid "logs_metric" in the system
-        logs_metric_percentile:
-          parameters:
-          - name: body
-            value: "{\n  \"data\": {\n    \"id\": \"{{ unique }}\",\n    \"attributes\":
-              {\n      \"filter\": {\n        \"query\": \"source:{{ unique }}\"\n
-              \     },\n      \"compute\": {\n        \"aggregation_type\": \"distribution\",\n
-              \       \"path\": \"@duration\",\n        \"include_percentiles\": true\n
-              \     }\n    },\n    \"type\": \"logs_metrics\"\n  }\n}"
-          step: there is a valid "logs_metric_percentile" in the system
       x-menu-order: 2
       x-undo:
         operationId: DeleteLogsMetric
@@ -18847,6 +19388,9 @@ tags:
 
     first 4000 characters are displayed.'
   name: Events
+- description: Configure your Datadog Fastly integration directly through the Datadog
+    API.
+  name: Fastly Integration
 - description: Create, update, delete, and retrieve services which can be associated
     with incidents.
   name: Incident Services
