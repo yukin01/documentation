@@ -347,6 +347,28 @@ class TestProcessNodes(unittest.TestCase):
         self.assertIn("[3]: /continuous_integration/tests/", ''.join(node.modified_lines))
         self.assertIn("[4]: /continuous_integration/pipelines/", ''.join(node.modified_lines))
 
+    def test_complex_text_link(self):
+        node = Node('root')
+        node.lines = [
+            "---\n",
+            "title: Config-provided hostname starting with `ip-` or `domu`\n",
+            "kind: faq\n",
+            "---\n",
+            "\n",
+            "See [Config-provided hostname starting with `ip-` or `domu`](https://github.com/DataDog/datadog-agent/blob/master/docs/agent/hostname_force_config_as_canonical.md)."
+        ]
+        process_nodes(node)
+        expected = [
+            "---\n",
+            "title: Config-provided hostname starting with `ip-` or `domu`\n",
+            "kind: faq\n",
+            "---\n",
+            '\n',
+            'See [Config-provided hostname starting with `ip-` or `domu`][1].\n',
+            '[1]: https://github.com/DataDog/datadog-agent/blob/master/docs/agent/hostname_force_config_as_canonical.md\n'
+        ]
+        self.assertEqual(expected, node.modified_lines)
+
 
 class TestFormatLinkFile(unittest.TestCase):
 
