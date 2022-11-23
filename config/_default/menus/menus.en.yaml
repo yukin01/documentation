@@ -7858,7 +7858,7 @@ api:
         - UpdateIncidentAttachments
       unstable:
         - v2
-      order: 7
+      order: 8
   - name: Get a list of attachments
     url: '#get-a-list-of-attachments'
     identifier: incidents-get-a-list-of-attachments
@@ -7871,7 +7871,7 @@ api:
         - ListIncidentAttachments
       unstable:
         - v2
-      order: 6
+      order: 7
   - name: Update an existing incident
     url: '#update-an-existing-incident'
     identifier: incidents-update-an-existing-incident
@@ -7911,6 +7911,19 @@ api:
       unstable:
         - v2
       order: 4
+  - name: Search for incidents
+    url: '#search-for-incidents'
+    identifier: incidents-search-for-incidents
+    parent: incidents
+    generated: true
+    params:
+      versions:
+        - v2
+      operationids:
+        - SearchIncidents
+      unstable:
+        - v2
+      order: 6
   - name: Create an incident
     url: '#create-an-incident'
     identifier: incidents-create-an-incident
