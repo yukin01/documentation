@@ -1,0 +1,30 @@
+{
+  "meta": {},
+  "data": {
+    "id": "string",
+    "type": "sensitive_data_scanner_rule",
+    "attributes": {
+      "name": "dfddf",
+      "pattern": "dff",
+      "namespaces": [],
+      "excluded_namespaces": [],
+      "text_replacement": {
+        "type": "none",
+        "replacement_string": "",
+        "number_of_chars": 1
+      },
+      "tags": [
+        "sensitive_data:true"
+      ],
+      "is_enabled": true
+    },
+    "relationships": {
+      "group": {
+        "data": {
+          "type": "sensitive_data_scanner_groups",
+          "id": "46276802-1da2-9e0e-5ee1-317a7e85eb44"
+        }
+      }
+    }
+  }
+}
